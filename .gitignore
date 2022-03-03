@@ -4,3 +4,14 @@ __pycache__
 build/
 reports/
 .env
+
+# Certora
+.certora*
+.last_confs
+certora_*
+.env
+yarn.lock
+*test*
+certora/openzeppelin/**/*.js*
+certora/openzeppelin/**/*.ts*
+certora/openzeppelin/**/LICENSE
