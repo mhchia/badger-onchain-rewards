@@ -43,6 +43,7 @@ methods {
     getBalanceAtEpoch(uint256, address, address) returns(uint256, bool) envfree
     requireNoDuplicates(address[]) envfree
     min(uint256, uint256) returns(uint256) envfree
+    tokenBalanceOf(address, address) returns(uint256) envfree
 }
 
 rule startNextEpochCheck(method f, env e){
@@ -55,4 +56,12 @@ rule startNextEpochCheck(method f, env e){
 
     assert epochStartAfter == e.block.timestamp, "wrong start";
     assert epochEndAfter == e.block.timestamp + 604800, "wrong end";
+}
+
+rule whoChangedMyBalance(address token, address user, method f) {
+    uint256 before = tokenBalanceOf(token,user);
+    env e;
+    calldataarg args;
+    f(e,args);
+    assert tokenBalanceOf(token,user) == before;
 }

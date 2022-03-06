@@ -72,6 +72,9 @@ contract RewardsManagerHarness is RewardsManager {
         return rewards[epochId][vaultAddress][tokenAddress];
     }
 
+    function tokenBalanceOf(address token, address user) public returns (uint256) {
+        return IERC20(token).balanceOf(user);
+    }
 
     // space to create your own destiny 
 
