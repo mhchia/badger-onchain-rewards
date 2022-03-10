@@ -1,4 +1,4 @@
-import "sanity.spec"
+import "erc20.spec"
 
 methods {
     // constants
@@ -46,6 +46,8 @@ methods {
     tokenBalanceOf(address, address) returns(uint256) envfree
 }
 
+// STATUS - verified
+// check correctness of startNextEpoch() method
 rule startNextEpochCheck(method f, env e){
     uint256 epochId = to_uint256(currentEpoch() + 1);
 
@@ -55,23 +57,32 @@ rule startNextEpochCheck(method f, env e){
     uint256 epochEndAfter = getEpochsEndTimestamp(epochId);
 
     assert epochStartAfter == e.block.timestamp, "wrong start";
-    assert epochEndAfter == e.block.timestamp + 604800, "wrong end";
+    assert epochEndAfter == e.block.timestamp + SECONDS_PER_EPOCH(), "wrong end";
 }
 
-rule whoChangedMyBalance(address token, address user, method f) {
+
+// get the list of functions which can change user's balance (It's not a rule that we usually use in real verification, more as a code example)
+rule whoChangedMyBalance(address token, address user, method f) filtered {f -> !f.isView && f.selector != accrueVault(uint256, address).selector} {
     uint256 before = tokenBalanceOf(token,user);
+
     env e;
     calldataarg args;
     f(e,args);
+
     assert tokenBalanceOf(token,user) == before;
 }
 
+
+// check if any function can change balances in different tokens (hint: there will be different results with --loop_iter 1 and 2. Try to undesrtand the reason)
 rule canAnyFunctionChangeMoreThanOneToken(address token1, address token2, address user, method f) {
     require token1!=token2;
+
     uint256 before1 = tokenBalanceOf(token1,user);
     uint256 before2 = tokenBalanceOf(token2,user);
+    
     env e;
     calldataarg args;
     f(e,args);
+
     assert tokenBalanceOf(token1,user) == before1 || tokenBalanceOf(token2,user) == before2;
 }
