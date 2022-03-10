@@ -3,5 +3,7 @@ certoraRun certora/harnesses/RewardsManagerHarness.sol certora/helpers/DummyERC2
     --solc solc8.10 \
     --optimistic_loop \
     --cloud \
+    --loop_iter 2 \
     --packages @oz=certora/openzeppelin/contracts \
-    --msg "$1"
+    --rule "$1" \
+    --msg "$1 with 2 loops"

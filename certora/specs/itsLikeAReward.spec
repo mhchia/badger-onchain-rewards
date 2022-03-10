@@ -2,8 +2,8 @@ import "sanity.spec"
 
 methods {
     // constants
-    SECONDS_PER_EPOCH() returns(uint256) envfree // => ALWAYS(604800)
-    MAX_BPS() returns(uint256) envfree => ALWAYS(10000)
+    SECONDS_PER_EPOCH() returns(uint256) envfree
+    MAX_BPS() returns(uint256) envfree
 
     // other variables
     currentEpoch() returns(uint256) envfree
@@ -65,3 +65,13 @@ rule whoChangedMyBalance(address token, address user, method f) {
     f(e,args);
     assert tokenBalanceOf(token,user) == before;
 }
+
+
+/*
+
+
+- if token == dummyA call dummy erc20A else
+- all possible optioned for tokens
+- 
+- 
+*/
