@@ -66,12 +66,12 @@ rule whoChangedMyBalance(address token, address user, method f) {
     assert tokenBalanceOf(token,user) == before;
 }
 
-
-/*
-
-
-- if token == dummyA call dummy erc20A else
-- all possible optioned for tokens
-- 
-- 
-*/
+rule canAnyFunctionChangeMoreThanOneToken(address token1, address token2, address user, method f) {
+    require token1!=token2;
+    uint256 before1 = tokenBalanceOf(token1,user);
+    uint256 before2 = tokenBalanceOf(token2,user);
+    env e;
+    calldataarg args;
+    f(e,args);
+    assert tokenBalanceOf(token1,user) == before1 || tokenBalanceOf(token2,user) == before2;
+}
