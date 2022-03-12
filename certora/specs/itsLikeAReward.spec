@@ -3,7 +3,7 @@ import "erc20.spec"
 methods {
     // constants
     SECONDS_PER_EPOCH() returns(uint256) envfree
-    MAX_BPS() returns(uint256) envfree
+    PRECISION() returns(uint256) envfree
 
     // other variables
     currentEpoch() returns(uint256) envfree
@@ -36,10 +36,10 @@ methods {
     claimBulkTokensOverMultipleEpochs(uint256, uint256, address, address[], address)
     handleDeposit(address, address, uint256)
     handleWithdrawal(address, address, uint256)
+    handleTransfer(address, address, address, uint256)
 
     // envfree methods
     getTotalSupplyAtEpoch(uint256, address) returns(uint256, bool) envfree
-    handleTransfer(address, address, address, uint256) envfree
     getBalanceAtEpoch(uint256, address, address) returns(uint256, bool) envfree
     requireNoDuplicates(address[]) envfree
     min(uint256, uint256) returns(uint256) envfree
