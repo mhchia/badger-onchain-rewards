@@ -17,7 +17,7 @@ methods {
     getLastAccruedTimestamp(uint256, address) returns(uint256) envfree
     getLastUserAccrueTimestamp(uint256, address, address) returns(uint256) envfree
     getLastVaultDeposit(address) returns(uint256) envfree
-    getShares(uint256, address) returns(uint256) envfree
+    getShares(uint256, address, address) returns(uint256) envfree
     getTotalSupply(uint256, address) returns(uint256) envfree
     getRewards(uint256 , address, address) returns(uint256) envfree
 
