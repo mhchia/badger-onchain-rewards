@@ -14,7 +14,7 @@ contract RewardsManagerHarness is RewardsManager {
         _handleWithdrawal(vault, to, amount);
     }
 
-    function handleWithdrawal(address vault, address from, address to, uint256 amount) public {
+    function handleTransfer(address vault, address from, address to, uint256 amount) public {
         _handleTransfer(vault, from, to, amount);
     }
 
