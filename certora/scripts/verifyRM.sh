@@ -5,5 +5,6 @@ certoraRun certora/harnesses/RewardsManagerHarness.sol certora/helpers/DummyERC2
     --cloud \
     --loop_iter 1 \
     --packages @oz=certora/openzeppelin/contracts \
-    --rule "$1" \
+    --rule pointsNonDecreasing \
+    --send_only \
     --msg "$1"

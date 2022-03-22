@@ -1,50 +1,4 @@
-import "erc20.spec"
-
-methods {
-    // constants
-    SECONDS_PER_EPOCH() returns(uint256) envfree
-    PRECISION() returns(uint256) envfree
-
-    // other variables
-    currentEpoch() returns(uint256) envfree
-
-    // mapping harness getters
-    getEpochsStartTimestamp(uint256) returns(uint256) envfree
-    getEpochsEndTimestamp(uint256) returns(uint256) envfree
-    getPoints(uint256, address, address) returns(uint256) envfree
-    getPointsWithdrawn(uint256, address, address, address) returns(uint256) envfree
-    getTotalPoints(uint256, address) returns(uint256) envfree
-    getLastAccruedTimestamp(uint256, address) returns(uint256) envfree
-    getLastUserAccrueTimestamp(uint256, address, address) returns(uint256) envfree
-    getLastVaultDeposit(address) returns(uint256) envfree
-    getShares(uint256, address, address) returns(uint256) envfree
-    getTotalSupply(uint256, address) returns(uint256) envfree
-    getRewards(uint256 , address, address) returns(uint256) envfree
-
-    // methods
-    startNextEpoch()
-    accrueVault(uint256, address)
-    getVaultTimeLeftToAccrue(uint256, address) returns(uint256)
-    claimBulkTokensOverMultipleEpochsOptimized(uint256, uint256, address, address[])
-    addRewards(uint256[], address[], address[], uint256[])
-    addReward(uint256, address, address, uint256)
-    notifyTransfer(address, address, uint256)
-    accrueUser(uint256, address, address)
-    getUserTimeLeftToAccrue(uint256, address, address) returns(uint256)
-    claimRewards(uint256[], address[], address[], address[])
-    claimReward(uint256, address, address, address)
-    claimBulkTokensOverMultipleEpochs(uint256, uint256, address, address[], address)
-    handleDeposit(address, address, uint256)
-    handleWithdrawal(address, address, uint256)
-    handleTransfer(address, address, address, uint256)
-
-    // envfree methods
-    getTotalSupplyAtEpoch(uint256, address) returns(uint256, bool) envfree
-    getBalanceAtEpoch(uint256, address, address) returns(uint256, bool) envfree
-    requireNoDuplicates(address[]) envfree
-    min(uint256, uint256) returns(uint256) envfree
-    tokenBalanceOf(address, address) returns(uint256) envfree
-}
+import "rewardsHarnessMethods.spec"
 
 // STATUS - verified
 // check correctness of startNextEpoch() method
@@ -61,28 +15,169 @@ rule startNextEpochCheck(method f, env e){
 }
 
 
-// get the list of functions which can change user's balance (It's not a rule that we usually use in real verification, more as a code example)
-rule whoChangedMyBalance(address token, address user, method f) filtered {f -> !f.isView && f.selector != accrueVault(uint256, address).selector} {
-    uint256 before = tokenBalanceOf(token,user);
+// ### Variable Transitions
+
+rule pointsIncreased(method f, uint256 epochId, address vault, address user)
+filtered {
+    f -> !f.isView
+}
+{
+    uint256 pointsBefore = getPoints(epochId, vault, user);
 
     env e;
     calldataarg args;
-    f(e,args);
+    f(e, args);
 
-    assert tokenBalanceOf(token,user) == before;
+    uint256 pointsAfter = getPoints(epochId, vault, user);
+    assert pointsAfter > pointsBefore => (
+        f.selector == accrueUser(uint256, address, address).selector ||
+        // Since `accrueUser` is called underneath in the following methods
+        f.selector == notifyTransfer(address, address, uint256).selector ||
+        f.selector == handleDeposit(address, address, uint256).selector ||
+        f.selector == handleWithdrawal(address, address, uint256).selector ||
+        f.selector == handleTransfer(address, address, address, uint256).selector ||
+        f.selector == claimReward(uint256, address, address, address).selector ||
+        f.selector == claimRewards(uint256[], address[], address[], address[]).selector ||
+        f.selector == claimBulkTokensOverMultipleEpochs(uint256,uint256,address,address[],address).selector ||
+        f.selector == claimBulkTokensOverMultipleEpochsOptimized(uint256, uint256, address, address[]).selector
+    );
 }
 
+rule totalSupplyIncreased(method f, uint256 epochId, address vault)
+filtered {
+    f -> !f.isView
+}
+{
+    uint256 totalSupplyBefore = getTotalSupply(epochId, vault);
 
-// check if any function can change balances in different tokens (hint: there will be different results with --loop_iter 1 and 2. Try to undesrtand the reason)
-rule canAnyFunctionChangeMoreThanOneToken(address token1, address token2, address user, method f) {
-    require token1!=token2;
-
-    uint256 before1 = tokenBalanceOf(token1,user);
-    uint256 before2 = tokenBalanceOf(token2,user);
-    
     env e;
     calldataarg args;
-    f(e,args);
+    f(e, args);
 
-    assert tokenBalanceOf(token1,user) == before1 || tokenBalanceOf(token2,user) == before2;
+    uint256 totalSupplyAfter = getTotalSupply(epochId, vault);
+    assert totalSupplyAfter > totalSupplyBefore => (
+        f.selector == accrueVault(uint256, address).selector ||
+        // Since `accrueVault` is called underneath in the following methods
+        f.selector == notifyTransfer(address, address, uint256).selector ||
+        f.selector == handleDeposit(address, address, uint256).selector ||
+        f.selector == handleWithdrawal(address, address, uint256).selector ||
+        f.selector == handleTransfer(address, address, address, uint256).selector ||
+        f.selector == claimReward(uint256, address, address, address).selector ||
+        f.selector == claimRewards(uint256[], address[], address[], address[]).selector ||
+        f.selector == claimBulkTokensOverMultipleEpochs(uint256,uint256,address,address[],address).selector ||
+        f.selector == claimBulkTokensOverMultipleEpochsOptimized(uint256, uint256, address, address[]).selector
+    );
 }
+
+rule pointsWithdrawnIncreased(method f, uint256 epochId, address vault, address userAddress, address rewardToken)
+filtered {
+    f -> !f.isView
+}
+{
+    uint256 pointsWithdrawnBefore = getPointsWithdrawn(epochId, vault, userAddress, rewardToken);
+
+    env e;
+    calldataarg args;
+    f(e, args);
+
+    uint256 pointsWithdrawnAfter = getPointsWithdrawn(epochId, vault, userAddress, rewardToken);
+
+    assert pointsWithdrawnAfter > pointsWithdrawnBefore => (
+        f.selector == claimReward(uint256, address, address, address).selector ||
+        f.selector == claimRewards(uint256[], address[], address[], address[]).selector ||
+        f.selector == claimBulkTokensOverMultipleEpochs(uint256,uint256,address,address[],address).selector ||
+        f.selector == claimBulkTokensOverMultipleEpochsOptimized(uint256, uint256, address, address[]).selector
+    );
+}
+
+// ### High-Level Properties
+
+// points is non-decreasing
+rule pointsNonDecreasing(method f, uint256 epochId, address vault, address user)
+filtered {
+    f -> !f.isView
+}
+{
+    uint256 userPointsBefore = getPoints(epochId, vault, user);
+
+    env e;
+    calldataarg args;
+    f(e, args);
+
+    uint256 userPointsAfter = getPoints(epochId, vault, user);
+
+    assert (
+        (userPointsAfter >= userPointsBefore) ||
+        // Except for the case claimBulkTokensOverMultipleEpochsOptimized set the points to 0.
+        (userPointsBefore != 0 && userPointsAfter == 0 && f.selector == claimBulkTokensOverMultipleEpochsOptimized(uint256, uint256, address, address[]).selector)
+    );
+}
+
+// pointsWithdrawn <= points
+// invariant pointsWithdrawnNotGreaterThanPoints(uint256 epochId, address vault, address user, address token)
+//     getPointsWithdrawn(epochId, vault, user, token) <=
+// {
+//     uint256 userPointsBefore = getPoints(epochId, vault, user);
+
+//     env e;
+//     calldataarg args;
+//     f(e, args);
+
+//     uint256 userPointsAfter = getPoints(epochId, vault, user);
+
+//     assert userPointsAfter >= userPointsBefore;
+// }
+
+
+// rule totalPointsNonDecreasing(method f, uint256 epochId, address vault)
+// filtered {
+//     f -> !f.isView
+// }
+// {
+//     uint256 totalPointsBefore = getTotalPoints(epochId, vault);
+
+//     env e;
+//     calldataarg args;
+//     f(e, args);
+
+//     uint256 totalPointsAfter = getTotalPoints(epochId, vault);
+
+//     assert totalPointsAfter >= totalPointsBefore;
+// }
+
+// ### `totalSupply = sum(shares)`
+ghost sumOfAllShares(uint256, address) returns uint256 {
+    init_state axiom forall uint256 _epochId. forall address _vault. forall address _user. sumOfAllShares(_epochId, _vault) == 0;
+}
+
+hook Sstore shares[KEY uint256 epochId][KEY address vault][KEY address user] uint256 new_shares
+    // the old value ↓ already there
+    (uint256 old_shares) STORAGE {
+
+    havoc sumOfAllShares assuming forall uint256 _epochId. forall address _vault. forall address _user. (
+        ((epochId == _epochId && vault == _vault && user == _user) => (sumOfAllShares@new(_epochId, _vault) == (sumOfAllShares@old(_epochId, _vault) + new_shares - old_shares))) &&
+        ((epochId != _epochId || vault != _vault || user != _user) => sumOfAllShares@new(_epochId, _vault) == sumOfAllShares@old(_epochId, _vault))
+    );
+}
+
+invariant totalSupply_GE_to_sumOfAllShares(uint256 epochId, address vault, address user)
+    getTotalSupply(epochId, vault) == sumOfAllShares(epochId, vault)
+
+
+// // ### `totalPoints = sum(points)`
+// ghost sumOfAllPoints(uint256, address) returns uint256 {
+//     init_state axiom forall uint256 _epochId. forall address _vault. forall address _user. sumOfAllPoints(_epochId, _vault) == 0;
+// }
+
+// hook Sstore points[KEY uint256 epochId][KEY address vault][KEY address user] uint256 new_points
+//     // the old value ↓ already there
+//     (uint256 old_points) STORAGE {
+
+//     havoc sumOfAllPoints assuming forall uint256 _epochId. forall address _vault. forall address _user. (
+//         ((epochId == _epochId && vault == _vault && user == _user) => (sumOfAllPoints@new(_epochId, _vault) == (sumOfAllPoints@old(_epochId, _vault) + new_points - old_points))) &&
+//         ((epochId != _epochId || vault != _vault || user != _user) => sumOfAllPoints@new(_epochId, _vault) == sumOfAllPoints@old(_epochId, _vault))
+//     );
+// }
+
+// invariant totalSupply_GE_to_sumOfAllPoints(uint256 epochId, address vault, address user)
+//     getTotalPoints(epochId, vault) == sumOfAllPoints(epochId, vault)
