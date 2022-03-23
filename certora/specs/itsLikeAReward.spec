@@ -113,20 +113,68 @@ filtered {
     );
 }
 
-// pointsWithdrawn <= points
-// invariant pointsWithdrawnNotGreaterThanPoints(uint256 epochId, address vault, address user, address token)
-//     getPointsWithdrawn(epochId, vault, user, token) <=
-// {
-//     uint256 userPointsBefore = getPoints(epochId, vault, user);
+// Invariant as rule: pointsWithdrawn <= points
+rule pointsWithdrawnNotGreaterThanPoints(method f, uint256 epochId, address vault, address user, address token)
+filtered {
+    f -> (
+        !f.isView &&
+        // Don't check `claimBulkTokensOverMultipleEpochsOptimized` since it deletes `points`.
+        f.selector != claimBulkTokensOverMultipleEpochsOptimized(uint256, uint256, address, address[]).selector
+    )
+}
+{
+    require getPointsWithdrawn(epochId, vault, user, token) <= getPoints(epochId, vault, user);
 
-//     env e;
-//     calldataarg args;
-//     f(e, args);
+    env e;
+    calldataarg args;
 
-//     uint256 userPointsAfter = getPoints(epochId, vault, user);
+    f(e, args);
 
-//     assert userPointsAfter >= userPointsBefore;
-// }
+    assert getPointsWithdrawn(epochId, vault, user, token) <= getPoints(epochId, vault, user);
+}
+
+
+// NOTE: It's very slow, like 5xx seconds.
+// Has more points, claim more tokens.
+rule morePointsAndClaimMoreRewards(uint256 epochId, address vault, address token, address user0, address user1)
+{
+    require user0 != user1 && user1 != currentContract;
+
+    env e;
+
+    // Assume users and vault are well accrued.
+    accrueUser(e, epochId, vault, user0);
+    accrueUser(e, epochId, vault, user1);
+    accrueVault(e, epochId, vault);
+
+    uint256 user0PointsWithdrawn = getPointsWithdrawn(epochId, vault, user0, token);
+    uint256 user1PointsWithdrawn = getPointsWithdrawn(epochId, vault, user1, token);
+    // Only consider the case that points are not withdrawn at all.
+    require user0PointsWithdrawn == 0 && user1PointsWithdrawn == 0;
+
+    uint256 user0Points = getPoints(epochId, vault, user0);
+    uint256 user1Points = getPoints(epochId, vault, user1);
+    require user0Points >= user1Points;
+
+
+    uint256 user0TokenBalanceBefore = tokenBalanceOf(token, user0);
+    uint256 user1TokenBalanceBefore = tokenBalanceOf(token, user1);
+
+    claimReward(e, epochId, vault, token, user0);
+    claimReward(e, epochId, vault, token, user1);
+
+    uint256 user0TokenBalanceAfter = tokenBalanceOf(token, user0);
+    uint256 user1TokenBalanceAfter = tokenBalanceOf(token, user1);
+
+    // Avoid underflow
+    require user0TokenBalanceAfter >= user0TokenBalanceBefore;
+    require user1TokenBalanceAfter >= user1TokenBalanceBefore;
+
+    uint256 user0Rewards = user0TokenBalanceAfter - user0TokenBalanceBefore;
+    uint256 user1Rewards = user1TokenBalanceAfter - user1TokenBalanceBefore;
+
+    assert user0Rewards >= user1Rewards;
+}
 
 
 // rule totalPointsNonDecreasing(method f, uint256 epochId, address vault)
@@ -162,6 +210,12 @@ hook Sstore shares[KEY uint256 epochId][KEY address vault][KEY address user] uin
 
 invariant totalSupply_GE_to_sumOfAllShares(uint256 epochId, address vault, address user)
     getTotalSupply(epochId, vault) == sumOfAllShares(epochId, vault)
+
+
+// NOTE: `addReward` and `addRewards` fail. Add `require(vault != address(0))` in `addReward` to fix it.
+invariant rewardsCantBeBurned(uint256 epochId, address token)
+    // if rewards[epochId][0][user] != 0, the rewards cannot be redeemed and practically burned.
+    getRewards(epochId, 0, token) == 0
 
 
 // // ### `totalPoints = sum(points)`
