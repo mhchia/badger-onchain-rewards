@@ -159,7 +159,6 @@ contract RewardsManager is ReentrancyGuard {
     /// @notice we return whether to update because the function has to figure that out
     /// comparing the storage value after the return value is a waste of a SLOAD
     function getTotalSupplyAtEpoch(uint256 epochId, address vault) public view returns (uint256, bool) {
-        // timestamp != 0，表示已經 accrue 過。
         if(lastAccruedTimestamp[epochId][vault] != 0){
             return (totalSupply[epochId][vault], false); // Already updated
         }
@@ -476,7 +475,6 @@ contract RewardsManager is ReentrancyGuard {
         shares[currentEpoch][vault][from] -= amount;
         // Reduce totalSupply
         totalSupply[currentEpoch][vault] -= amount;
-
     }
 
     /// @dev handles a transfer for vault, from address to address of amount
@@ -504,7 +502,7 @@ contract RewardsManager is ReentrancyGuard {
     function accrueUser(uint256 epochId, address vault, address user) public {
         require(epochId <= currentEpoch); // dev: !can only accrue up to current epoch
 
-        // 看要不要 update shares
+        // NOTE: update shares
         (uint256 currentBalance, bool shouldUpdate) = getBalanceAtEpoch(epochId, vault, user);
 
         if(shouldUpdate) {
@@ -559,7 +557,7 @@ contract RewardsManager is ReentrancyGuard {
         }
 
         // NOTE:
-        //  maxTime 是
+        //  maxTime is
         //  - 1. now time in the epoch.
         //  - 2. epoch end time, if now time is after the epoch end time.
 
