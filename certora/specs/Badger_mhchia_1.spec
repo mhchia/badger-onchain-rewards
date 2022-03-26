@@ -49,6 +49,9 @@ filtered {
 // NOTE: It's very slow, like 5xx seconds.
 // Has more points, claim more tokens.
 rule morePointsAndClaimMoreRewards(uint256 epochId, address vault, address token, address user0, address user1)
+filtered {
+    f -> !f.isView
+}
 {
     require user0 != user1 && user1 != currentContract;
 
@@ -90,21 +93,22 @@ rule morePointsAndClaimMoreRewards(uint256 epochId, address vault, address token
 }
 
 
-// rule totalPointsNonDecreasing(method f, uint256 epochId, address vault)
-// filtered {
-//     f -> !f.isView
-// }
-// {
-//     uint256 totalPointsBefore = getTotalPoints(epochId, vault);
+rule totalPointsNonDecreasing(method f, uint256 epochId, address vault)
+filtered {
+    f -> !f.isView
+}
+{
+    require epochId != 0;
+    uint256 totalPointsBefore = getTotalPoints(epochId, vault);
 
-//     env e;
-//     calldataarg args;
-//     f(e, args);
+    env e;
+    calldataarg args;
+    f(e, args);
 
-//     uint256 totalPointsAfter = getTotalPoints(epochId, vault);
+    uint256 totalPointsAfter = getTotalPoints(epochId, vault);
 
-//     assert totalPointsAfter >= totalPointsBefore;
-// }
+    assert totalPointsAfter >= totalPointsBefore;
+}
 
 // ### `totalSupply = sum(shares)`
 ghost sumOfAllShares(uint256, address) returns uint256 {
@@ -125,20 +129,20 @@ invariant totalSupply_GE_to_sumOfAllShares(uint256 epochId, address vault, addre
     getTotalSupply(epochId, vault) == sumOfAllShares(epochId, vault)
 
 
-// // ### `totalPoints = sum(points)`
-// ghost sumOfAllPoints(uint256, address) returns uint256 {
-//     init_state axiom forall uint256 _epochId. forall address _vault. forall address _user. sumOfAllPoints(_epochId, _vault) == 0;
-// }
+// ### `totalPoints >= sum(points)`
+ghost sumOfAllPoints(uint256, address) returns uint256 {
+    init_state axiom forall uint256 _epochId. forall address _vault. forall address _user. sumOfAllPoints(_epochId, _vault) == 0;
+}
 
-// hook Sstore points[KEY uint256 epochId][KEY address vault][KEY address user] uint256 new_points
-//     // the old value ↓ already there
-//     (uint256 old_points) STORAGE {
+hook Sstore points[KEY uint256 epochId][KEY address vault][KEY address user] uint256 new_points
+    // the old value ↓ already there
+    (uint256 old_points) STORAGE {
 
-//     havoc sumOfAllPoints assuming forall uint256 _epochId. forall address _vault. forall address _user. (
-//         ((epochId == _epochId && vault == _vault && user == _user) => (sumOfAllPoints@new(_epochId, _vault) == (sumOfAllPoints@old(_epochId, _vault) + new_points - old_points))) &&
-//         ((epochId != _epochId || vault != _vault || user != _user) => sumOfAllPoints@new(_epochId, _vault) == sumOfAllPoints@old(_epochId, _vault))
-//     );
-// }
+    havoc sumOfAllPoints assuming forall uint256 _epochId. forall address _vault. forall address _user. (
+        ((epochId == _epochId && vault == _vault && user == _user) => (sumOfAllPoints@new(_epochId, _vault) == (sumOfAllPoints@old(_epochId, _vault) + new_points - old_points))) &&
+        ((epochId != _epochId || vault != _vault || user != _user) => sumOfAllPoints@new(_epochId, _vault) == sumOfAllPoints@old(_epochId, _vault))
+    );
+}
 
-// invariant totalPoints_GE_to_sumOfAllPoints(uint256 epochId, address vault, address user)
-//     getTotalPoints(epochId, vault) == sumOfAllPoints(epochId, vault)
+invariant totalPoints_GE_to_sumOfAllPoints(uint256 epochId, address vault, address user)
+    getTotalPoints(epochId, vault) >= sumOfAllPoints(epochId, vault)

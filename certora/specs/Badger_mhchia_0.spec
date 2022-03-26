@@ -4,11 +4,18 @@ import "rewardsHarnessMethods.spec"
     Valid State
 */
 
+definition rewardsManagerInitialized() returns bool = currentEpoch() != 0;
+
+invariant allTimestampsAreZeroWhenUnintialized(uint256 epochId)
+    !rewardsManagerInitialized() => getEpochsStartTimestamp(epochId) == 0 && getEpochsEndTimestamp(epochId) == 0
+
+
 rule epochTimeDoesntChangeAfterStarted(method f, uint256 epochId)
 filtered {
     f -> !f.isView
 }
 {
+    require rewardsManagerInitialized();
     require currentEpoch() == epochId;
     require epochHasStarted(epochId);
 
@@ -106,25 +113,6 @@ filtered {
         f.selector == handleDeposit(address, address, uint256).selector ||
         f.selector == notifyTransfer(address, address, uint256).selector
     );
-    //     // totalSupply should only be increased in 1) `handleDeposit`, otherwise 2) by
-    //     // updated from the previous epochs.
-    //     !shouldUpdate ? (
-    //         // 1) due to `handleDeposit`
-    //         f.selector == handleDeposit(address, address, uint256).selector
-    //     ):(
-    //         // 2) due to updated from previous epochs
-    //         f.selector == handleDeposit(address, address, uint256).selector ||
-    //         f.selector == accrueVault(uint256, address).selector ||
-    //         // Since `accrueVault` is called underneath in the following methods
-    //         f.selector == notifyTransfer(address, address, uint256).selector ||
-    //         f.selector == handleWithdrawal(address, address, uint256).selector ||
-    //         f.selector == handleTransfer(address, address, address, uint256).selector ||
-    //         f.selector == claimReward(uint256, address, address, address).selector ||
-    //         f.selector == claimRewards(uint256[], address[], address[], address[]).selector ||
-    //         f.selector == claimBulkTokensOverMultipleEpochs(uint256,uint256,address,address[],address).selector ||
-    //         f.selector == claimBulkTokensOverMultipleEpochsOptimized(uint256, uint256, address, address[]).selector
-    //     )
-    // );
 }
 
 rule pointsWithdrawnIncreased(method f, uint256 epochId, address vault, address userAddress, address rewardToken)
@@ -148,24 +136,30 @@ filtered {
     );
 }
 
-// rule totalPointsIncreased(method f, uint256 epochId, address vault)
-// filtered {
-//     f -> !f.isView
-// }
-// {
-//     uint256 totalPointsBefore = getTotalPoints(epochId, vault);
+rule totalPointsIncreased(method f, uint256 epochId, address vault)
+filtered {
+    f -> (
+        !f.isView &&
+        f.selector != handleDeposit(address, address, uint256).selector &&
+        f.selector != handleWithdrawal(address, address, uint256).selector
+    )
+}
+{
+    uint256 totalPointsBefore = getTotalPoints(epochId, vault);
 
-//     env e;
-//     calldataarg args;
-//     f(e, args);
+    env e;
+    calldataarg args;
+    f(e, args);
 
-//     uint256 totalPointsAfter = getTotalPoints(epochId, vault);
+    uint256 totalPointsAfter = getTotalPoints(epochId, vault);
 
-//     assert totalPointsAfter > totalPointsBefore => (
-//         f.selector == claimReward(uint256, address, address, address).selector ||
-//         f.selector == claimRewards(uint256[], address[], address[], address[]).selector ||
-//         f.selector == claimBulkTokensOverMultipleEpochs(uint256,uint256,address,address[],address).selector ||
-//         f.selector == claimBulkTokensOverMultipleEpochsOptimized(uint256, uint256, address, address[]).selector
-//     );
-// }
+    assert totalPointsAfter > totalPointsBefore => (
+        f.selector == accrueVault(uint256, address).selector ||
+        f.selector == notifyTransfer(address, address, uint256).selector ||
+        f.selector == claimReward(uint256, address, address, address).selector ||
+        f.selector == claimRewards(uint256[], address[], address[], address[]).selector ||
+        f.selector == claimBulkTokensOverMultipleEpochs(uint256,uint256,address,address[],address).selector ||
+        f.selector == claimBulkTokensOverMultipleEpochsOptimized(uint256, uint256, address, address[]).selector
+    );
+}
 
