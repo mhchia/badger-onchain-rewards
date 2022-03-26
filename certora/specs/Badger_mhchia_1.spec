@@ -125,12 +125,6 @@ invariant totalSupply_GE_to_sumOfAllShares(uint256 epochId, address vault, addre
     getTotalSupply(epochId, vault) == sumOfAllShares(epochId, vault)
 
 
-// NOTE: `addReward` and `addRewards` fail. Add `require(vault != address(0))` in `addReward` to fix it.
-invariant rewardsCantBeBurned(uint256 epochId, address token)
-    // if rewards[epochId][address(0)][user] == N > 0, the rewards `N` cannot be redeemed and practically burned.
-    getRewards(epochId, 0, token) == 0
-
-
 // // ### `totalPoints = sum(points)`
 // ghost sumOfAllPoints(uint256, address) returns uint256 {
 //     init_state axiom forall uint256 _epochId. forall address _vault. forall address _user. sumOfAllPoints(_epochId, _vault) == 0;
@@ -146,5 +140,5 @@ invariant rewardsCantBeBurned(uint256 epochId, address token)
 //     );
 // }
 
-// invariant totalSupply_GE_to_sumOfAllPoints(uint256 epochId, address vault, address user)
+// invariant totalPoints_GE_to_sumOfAllPoints(uint256 epochId, address vault, address user)
 //     getTotalPoints(epochId, vault) == sumOfAllPoints(epochId, vault)
