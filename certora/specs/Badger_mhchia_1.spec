@@ -46,7 +46,6 @@ filtered {
 }
 
 
-// NOTE: It's very slow, like 5xx seconds.
 // Has more points, claim more tokens.
 rule morePointsAndClaimMoreRewards(uint256 epochId, address vault, address token, address user0, address user1)
 filtered {
