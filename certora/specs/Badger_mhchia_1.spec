@@ -48,9 +48,6 @@ filtered {
 
 // Has more points, claim more tokens.
 rule morePointsAndClaimMoreRewards(uint256 epochId, address vault, address token, address user0, address user1)
-filtered {
-    f -> !f.isView
-}
 {
     require user0 != user1 && user1 != currentContract;
 
